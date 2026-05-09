@@ -24,7 +24,8 @@ dirLight.shadow.mapSize.set(2048, 2048);
 lights.push(dirLight);
 lights.forEach(light => scene.add(light));
 
-const roadRadius = 22;
+const roadLength = 200;
+const roadWidth = 12;
 const maxLaps = 3;
 const track = createTrack();
 const player = createRacer(0x4ab3ff);
@@ -37,59 +38,54 @@ function createTrack() {
   const trackGroup = new THREE.Group();
 
   const road = new THREE.Mesh(
-    new THREE.RingGeometry(roadRadius - 4, roadRadius + 4, 144),
+    new THREE.PlaneGeometry(roadWidth, roadLength),
     new THREE.MeshStandardMaterial({ color: 0x222b42, roughness: 0.8, metalness: 0.1 })
   );
   road.rotation.x = -Math.PI / 2;
   road.receiveShadow = true;
   trackGroup.add(road);
 
-  const outerGuard = new THREE.Mesh(
-    new THREE.TorusGeometry(roadRadius + 4.3, 0.4, 16, 128),
-    new THREE.MeshStandardMaterial({ color: 0x111a28, roughness: 0.9, metalness: 0.15 })
+  const leftWall = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.8, roadLength),
+    new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.7 })
   );
-  outerGuard.rotation.x = Math.PI / 2;
-  outerGuard.receiveShadow = true;
-  trackGroup.add(outerGuard);
+  leftWall.position.set(-(roadWidth / 2 + 0.25), 0.4, 0);
+  leftWall.receiveShadow = true;
+  trackGroup.add(leftWall);
 
-  const innerGuard = new THREE.Mesh(
-    new THREE.TorusGeometry(roadRadius - 4.3, 0.4, 16, 128),
-    new THREE.MeshStandardMaterial({ color: 0x111a28, roughness: 0.9, metalness: 0.15 })
+  const rightWall = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.8, roadLength),
+    new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.7 })
   );
-  innerGuard.rotation.x = Math.PI / 2;
-  innerGuard.receiveShadow = true;
-  trackGroup.add(innerGuard);
-
-  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.77 });
-  const linePoints = [];
-  for (let i = 0; i < 120; i += 2) {
-    const angle = (i / 120) * Math.PI * 2;
-    const start = new THREE.Vector3((roadRadius - 0.4) * Math.cos(angle), 0.05, (roadRadius - 0.4) * Math.sin(angle));
-    const end = new THREE.Vector3((roadRadius + 0.4) * Math.cos(angle), 0.05, (roadRadius + 0.4) * Math.sin(angle));
-    linePoints.push(start, end);
-  }
-  const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-  const dashedLine = new THREE.LineSegments(lineGeometry, lineMaterial);
-  trackGroup.add(dashedLine);
+  rightWall.position.set(roadWidth / 2 + 0.25, 0.4, 0);
+  rightWall.receiveShadow = true;
+  trackGroup.add(rightWall);
 
   const finishLine = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.2, 8),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.4 })
+    new THREE.BoxGeometry(roadWidth + 1, 0.1, 1),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 })
   );
-  finishLine.position.set(roadRadius, 0.1, 0);
-  finishLine.rotation.y = Math.PI / 2;
+  finishLine.position.set(0, 0.05, roadLength / 2 - 1);
   trackGroup.add(finishLine);
 
+  const startLine = new THREE.Mesh(
+    new THREE.BoxGeometry(roadWidth + 1, 0.1, 1),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 })
+  );
+  startLine.position.set(0, 0.05, -roadLength / 2 + 1);
+  trackGroup.add(startLine);
+
   const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(120, 64),
+    new THREE.PlaneGeometry(100, 250),
     new THREE.MeshStandardMaterial({ color: 0x0a1220, roughness: 1 })
   );
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.1;
+  ground.position.z = 0;
   trackGroup.add(ground);
 
   scene.add(trackGroup);
-  return { finishAngle: 0 };
+  return { finishZ: roadLength / 2 - 1 };
 }
 
 function createRacer(color) {
@@ -123,39 +119,46 @@ function createRacer(color) {
   return {
     group,
     speed: 0,
-    angle: 0,
+    posZ: 0,
+    posX: 0,
+    direction: 0,
     lap: 0,
-    lastAngle: 0,
+    lastLapZ: -roadLength / 2,
     color,
   };
 }
 
 function resetRace() {
-  player.angle = 0;
+  player.posZ = -roadLength / 2 + 5;
+  player.posX = 0;
   player.speed = 0;
+  player.direction = 0;
   player.lap = 0;
-  player.lastAngle = 0;
-  player.group.position.set(roadRadius, 0, 0);
-  player.group.rotation.y = -Math.PI / 2;
+  player.lastLapZ = -roadLength / 2;
+  player.group.position.set(player.posX, 0, player.posZ);
+  player.group.rotation.y = 0;
 
   bots.forEach((bot, index) => {
-    bot.angle = -Math.PI * 0.35 * (index + 1);
-    bot.speed = 18 + index * 2;
+    bot.posZ = -roadLength / 2 + 5 + (index + 1) * 8;
+    bot.posX = (index - 1) * 2.5;
+    bot.speed = 15 + index * 2;
+    bot.direction = 0;
     bot.lap = 0;
-    bot.lastAngle = bot.angle;
-    updateRacerPosition(bot);
+    bot.lastLapZ = -roadLength / 2;
+    bot.group.position.set(bot.posX, 0, bot.posZ);
+    bot.group.rotation.y = 0;
   });
 
-  updateHUD('Drive with ↑ ↓ ← →. Finish 3 laps to win.');
+  updateHUD('Drive with ↑ ↓ ← →. Reach the finish line 3 times to win.');
   lapCountLabel.textContent = `Lap 0 / ${maxLaps}`;
 }
 
 function updateRacerPosition(racer) {
-  const radius = roadRadius;
-  const x = radius * Math.cos(racer.angle);
-  const z = radius * Math.sin(racer.angle);
-  racer.group.position.set(x, 0, z);
-  racer.group.rotation.y = -racer.angle + Math.PI / 2;
+  racer.group.position.set(racer.posX, 0, racer.posZ);
+  racer.group.rotation.y = racer.direction;
+  
+  const clampedX = Math.max(-roadWidth / 2 + 1.2, Math.min(roadWidth / 2 - 1.2, racer.posX));
+  racer.group.position.x = clampedX;
 }
 
 const input = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
@@ -176,10 +179,12 @@ newCarButton.addEventListener('click', () => {
   const randomColor = Math.random() * 0xffffff;
   scene.remove(player.group);
   const newPlayer = createRacer(randomColor);
-  newPlayer.angle = player.angle;
+  newPlayer.posZ = player.posZ;
+  newPlayer.posX = player.posX;
   newPlayer.speed = player.speed;
+  newPlayer.direction = player.direction;
   newPlayer.lap = player.lap;
-  newPlayer.lastAngle = player.lastAngle;
+  newPlayer.lastLapZ = player.lastLapZ;
   player.group = newPlayer.group;
   player.color = randomColor;
   scene.add(player.group);
@@ -207,71 +212,72 @@ function animate(now) {
 }
 
 function updatePlayer(dt) {
-  const acceleration = 28;
-  const braking = 48;
-  const maxSpeed = 42;
-  const turnSpeed = 2.2;
+  const acceleration = 35;
+  const braking = 55;
+  const maxSpeed = 50;
+  const turnSpeed = 4.5;
+  const lateralForce = 25;
 
   if (input.ArrowUp) {
     player.speed = Math.min(player.speed + acceleration * dt, maxSpeed);
   } else if (input.ArrowDown) {
-    player.speed = Math.max(player.speed - braking * dt, -12);
+    player.speed = Math.max(player.speed - braking * dt, -15);
   } else {
-    player.speed *= 0.994;
+    player.speed *= 0.992;
   }
 
   if (input.ArrowLeft) {
-    player.angle += turnSpeed * dt * (player.speed / maxSpeed);
-  }
-  if (input.ArrowRight) {
-    player.angle -= turnSpeed * dt * (player.speed / maxSpeed);
+    player.direction = Math.min(player.direction + turnSpeed * dt, 0.4);
+    player.posX += lateralForce * dt;
+  } else if (input.ArrowRight) {
+    player.direction = Math.max(player.direction - turnSpeed * dt, -0.4);
+    player.posX -= lateralForce * dt;
+  } else {
+    player.direction *= 0.94;
   }
 
-  player.angle += (player.speed / 10) * dt;
+  player.posZ += player.speed * dt;
   checkLapProgress(player);
   updateRacerPosition(player);
   speedMeter.textContent = `Speed ${Math.round(Math.abs(player.speed))}`;
 }
 
 function updateBots(dt) {
-  bots.forEach((bot) => {
-    const noise = (Math.sin(bot.angle * 2.3 + performance.now() * 0.001) + 1) * 0.5;
-    const desiredSpeed = 16 + (bot.color === 0xff5252 ? 8 : bot.color === 0xf5a623 ? 7 : 6);
-    bot.speed += (desiredSpeed + noise * 2 - bot.speed) * dt * 0.5;
-    bot.angle += (bot.speed / 10) * dt;
+  bots.forEach((bot, idx) => {
+    const noise = Math.sin(bot.posZ * 0.03 + performance.now() * 0.002) * 2;
+    const desiredSpeed = 18 + idx * 2;
+    bot.speed += (desiredSpeed - bot.speed) * dt * 0.6;
+    
+    bot.posZ += bot.speed * dt;
+    bot.posX += noise * dt * 0.5;
+    bot.direction = noise * 0.1;
+    
     checkLapProgress(bot);
     updateRacerPosition(bot);
   });
 }
 
 function checkLapProgress(racer) {
-  const normalized = normalizeAngle(racer.angle);
-  const crossed = racer.lastAngle > Math.PI * 1.5 && normalized < Math.PI * 0.5;
-  if (crossed) {
+  const finishZ = track.finishZ;
+  if (racer.posZ >= finishZ && racer.lastLapZ < finishZ) {
     racer.lap += 1;
+    racer.lastLapZ = racer.posZ;
+    
     if (racer === player) {
       lapCountLabel.textContent = `Lap ${player.lap} / ${maxLaps}`;
       if (player.lap >= maxLaps) {
-        updateHUD('You finished the race! Press Restart to play again.');
+        updateHUD('🏁 You finished the race! Press Restart to play again.');
       } else {
-        updateHUD('Lap completed! Keep racing.');
+        updateHUD('✓ Lap completed! Keep racing.');
       }
     }
   }
-  racer.lastAngle = normalized;
-}
-
-function normalizeAngle(angle) {
-  let a = angle % (Math.PI * 2);
-  if (a < 0) a += Math.PI * 2;
-  return a;
 }
 
 function updateCamera() {
-  const offset = new THREE.Vector3(0, 8, 16);
-  offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -player.angle + Math.PI);
+  const offset = new THREE.Vector3(0, 6, 12);
   camera.position.copy(player.group.position).add(offset);
-  camera.lookAt(player.group.position.x, player.group.position.y + 1.2, player.group.position.z);
+  camera.lookAt(player.group.position.x, player.group.position.y + 0.8, player.group.position.z + 8);
 }
 
 function onWindowResize() {
