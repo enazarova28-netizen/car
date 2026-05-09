@@ -126,6 +126,7 @@ function createRacer(color) {
     group,
     speed: 0,
     posZ: 0,
+    prevZ: 0,
     posX: 0,
     direction: 0,
     lap: 0,
@@ -136,6 +137,7 @@ function createRacer(color) {
 
 function resetRace() {
   player.posZ = -roadLength / 2 + 5;
+  player.prevZ = player.posZ;
   player.posX = 0;
   player.speed = 0;
   player.direction = 0;
@@ -146,6 +148,7 @@ function resetRace() {
 
   bots.forEach((bot, index) => {
     bot.posZ = -roadLength / 2 + 5 + (index + 1) * 8;
+    bot.prevZ = bot.posZ;
     bot.posX = (index - 1) * 2.5;
     bot.speed = 15 + index * 2;
     bot.direction = 0;
@@ -247,6 +250,7 @@ function updatePlayer(dt) {
     player.direction *= 0.94;
   }
 
+  player.prevZ = player.posZ;
   player.posZ += player.speed * dt;
   checkLapProgress(player);
   updateRacerPosition(player);
@@ -259,6 +263,7 @@ function updateBots(dt) {
     const desiredSpeed = 18 + idx * 2;
     bot.speed += (desiredSpeed - bot.speed) * dt * 0.6;
     
+    bot.prevZ = bot.posZ;
     bot.posZ += bot.speed * dt;
     bot.posX += noise * dt * 0.5;
     bot.direction = noise * 0.1;
@@ -270,9 +275,8 @@ function updateBots(dt) {
 
 function checkLapProgress(racer) {
   const finishZ = track.finishZ;
-  if (racer.posZ >= finishZ && racer.lastLapZ < finishZ) {
+  if (racer.prevZ < finishZ && racer.posZ >= finishZ) {
     racer.lap += 1;
-    racer.lastLapZ = racer.posZ;
     
     if (racer === player) {
       lapCountLabel.textContent = `Lap ${player.lap} / ${maxLaps}`;
@@ -284,9 +288,8 @@ function checkLapProgress(racer) {
     }
   }
 
-  if (racer.posZ > finishZ + 2) {
-    racer.posZ = startZ + (racer.posZ - finishZ - 2);
-    racer.lastLapZ = startZ;
+  if (racer.posZ > finishZ + 3) {
+    racer.posZ = startZ + (racer.posZ - finishZ - 3);
   }
 }
 
