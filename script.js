@@ -132,8 +132,9 @@ function createRacer(color) {
     direction: 0,
     lap: 0,
     lastLapZ: -roadLength / 2,
-    collisionRadius: 2.2,
+    collisionRadius: 2.6,
     crashTimer: 0,
+    baseColor: color,
     color,
   };
 }
@@ -146,8 +147,10 @@ function resetRace() {
   player.direction = 0;
   player.lap = 0;
   player.lastLapZ = -roadLength / 2;
+  player.crashTimer = 0;
   player.group.position.set(player.posX, 0, player.posZ);
   player.group.rotation.y = 0;
+  player.group.children[0].material.color.set(player.baseColor);
 
   bots.forEach((bot, index) => {
     bot.posZ = -roadLength / 2 + 5 + (index + 1) * 8;
@@ -157,8 +160,10 @@ function resetRace() {
     bot.direction = 0;
     bot.lap = 0;
     bot.lastLapZ = -roadLength / 2;
+    bot.crashTimer = 0;
     bot.group.position.set(bot.posX, 0, bot.posZ);
     bot.group.rotation.y = 0;
+    bot.group.children[0].material.color.set(bot.baseColor);
   });
 
   updateHUD('Drive with ↑ ↓ ← →. Reach the finish line 3 times to win.');
@@ -239,6 +244,9 @@ function updatePlayer(dt) {
 
   if (player.crashTimer > 0) {
     player.crashTimer = Math.max(0, player.crashTimer - dt);
+    if (player.crashTimer === 0) {
+      player.group.children[0].material.color.set(player.baseColor);
+    }
   }
 
   if (input.ArrowUp) {
@@ -275,6 +283,13 @@ function updatePlayer(dt) {
 
 function updateBots(dt) {
   bots.forEach((bot, idx) => {
+    if (bot.crashTimer > 0) {
+      bot.crashTimer = Math.max(0, bot.crashTimer - dt);
+      if (bot.crashTimer === 0) {
+        bot.group.children[0].material.color.set(bot.baseColor);
+      }
+    }
+
     const noise = Math.sin(bot.posZ * 0.03 + performance.now() * 0.002) * 2;
     const desiredSpeed = 18 + idx * 2;
     bot.speed += (desiredSpeed - bot.speed) * dt * 0.6;
@@ -323,17 +338,21 @@ function checkCarCollisions() {
 
     if (isCollision) {
       player.crashTimer = crashResetTime;
-      player.speed = -18;
-      player.posZ -= 4;
-      player.posX += dx >= 0 ? 2 : -2;
+      bot.crashTimer = crashResetTime;
+      player.speed = -22;
+      player.posZ -= 5;
+      player.posX += dx >= 0 ? 4 : -4;
       player.direction *= 0.2;
+      player.group.children[0].material.color.set(0xff4444);
 
-      bot.speed *= 0.5;
-      bot.posZ += 2;
-      bot.posX -= dx >= 0 ? 1 : -1;
-      bot.direction *= -0.2;
+      bot.speed = Math.max(bot.speed * 0.3, 8);
+      bot.posZ += 5;
+      bot.posX -= dx >= 0 ? 2 : -2;
+      bot.direction *= -0.3;
+      bot.group.children[0].material.color.set(0xff4444);
 
       updateHUD('💥 Crash! You hit another car.');
+      return;
     }
   });
 }
