@@ -1,0 +1,12 @@
+{
+  "name": "html-js-starter",
+  "version": "1.0.0",
+  "description": "A simple HTML and JavaScript starter project.",
+  "private": true,
+  "scripts": {
+    "start": "live-server --open=./index.html --watch=./"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
