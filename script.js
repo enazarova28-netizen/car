@@ -30,7 +30,7 @@ dirLight.shadow.mapSize.set(2048, 2048);
 lights.push(dirLight);
 lights.forEach(light => scene.add(light));
 
-const roadLength = 100;
+const roadLength = 220;
 const roadWidth = 12;
 const startZ = -roadLength / 2 + 1;
 const maxLaps = 3;
@@ -84,7 +84,7 @@ function createTrack() {
   trackGroup.add(startLine);
 
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 250),
+    new THREE.PlaneGeometry(140, 520),
     new THREE.MeshStandardMaterial({ color: 0x0a1220, roughness: 1 })
   );
   ground.rotation.x = -Math.PI / 2;
