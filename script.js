@@ -93,19 +93,26 @@ function createTrack() {
   trackGroup.add(ground);
 
   const obstacleData = [
-    { x: -3.4, z: -24 },
-    { x: 3.2, z: -42 },
-    { x: -1.8, z: -64 },
-    { x: 2.8, z: -82 },
-    { x: 0.5, z: -58 },
+    { x: -3.4, z: -20 },
+    { x: 3.2, z: -36 },
+    { x: -1.8, z: -52 },
+    { x: 2.8, z: -68 },
+    { x: 0.5, z: -84 },
+    { x: -2.2, z: -96 },
+    { x: 2.5, z: -112 },
+    { x: -3, z: -128 },
+    { x: 3.4, z: -144 },
+    { x: 0, z: -160 },
+    { x: -2.7, z: -176 },
+    { x: 2.7, z: -192 },
   ];
 
   obstacleData.forEach(({ x, z }) => {
     const obstacle = new THREE.Mesh(
-      new THREE.BoxGeometry(2.2, 1.4, 2.4),
+      new THREE.BoxGeometry(2.4, 1.6, 2.8),
       new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.5, metalness: 0.2 })
     );
-    obstacle.position.set(x, 0.7, z);
+    obstacle.position.set(x, 0.8, z);
     obstacle.castShadow = true;
     obstacle.receiveShadow = true;
     trackGroup.add(obstacle);
