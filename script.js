@@ -31,6 +31,7 @@ lights.forEach(light => scene.add(light));
 
 const roadLength = 100;
 const roadWidth = 12;
+const startZ = -roadLength / 2 + 1;
 const maxLaps = 3;
 const track = createTrack();
 const player = createRacer(0x4ab3ff);
@@ -281,6 +282,11 @@ function checkLapProgress(racer) {
         updateHUD('✓ Lap completed! Keep racing.');
       }
     }
+  }
+
+  if (racer.posZ > finishZ + 2) {
+    racer.posZ = startZ + (racer.posZ - finishZ - 2);
+    racer.lastLapZ = startZ;
   }
 }
 
