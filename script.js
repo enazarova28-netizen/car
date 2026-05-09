@@ -34,6 +34,7 @@ const roadLength = 100;
 const roadWidth = 12;
 const startZ = -roadLength / 2 + 1;
 const maxLaps = 3;
+const obstacles = [];
 const track = createTrack();
 const player = createRacer(0x4ab3ff);
 const bots = [createRacer(0xff5252), createRacer(0xf5a623), createRacer(0x8cff88)];
@@ -90,6 +91,26 @@ function createTrack() {
   ground.position.y = -0.1;
   ground.position.z = 0;
   trackGroup.add(ground);
+
+  const obstacleData = [
+    { x: -3.4, z: -24 },
+    { x: 3.2, z: -42 },
+    { x: -1.8, z: -64 },
+    { x: 2.8, z: -82 },
+    { x: 0.5, z: -58 },
+  ];
+
+  obstacleData.forEach(({ x, z }) => {
+    const obstacle = new THREE.Mesh(
+      new THREE.BoxGeometry(2.2, 1.4, 2.4),
+      new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.5, metalness: 0.2 })
+    );
+    obstacle.position.set(x, 0.7, z);
+    obstacle.castShadow = true;
+    obstacle.receiveShadow = true;
+    trackGroup.add(obstacle);
+    obstacles.push(obstacle);
+  });
 
   scene.add(trackGroup);
   return { finishZ: roadLength / 2 - 1 };
@@ -353,6 +374,22 @@ function checkCarCollisions() {
 
       updateHUD('💥 Crash! You hit another car.');
       return;
+    }
+  });
+
+  obstacles.forEach((obstacle) => {
+    const dx = player.posX - obstacle.position.x;
+    const dz = player.posZ - obstacle.position.z;
+    const minDistance = player.collisionRadius + 1.2;
+    if (dx * dx + dz * dz <= minDistance * minDistance) {
+      player.crashTimer = crashResetTime;
+      player.speed = -18;
+      player.posZ -= 4;
+      player.posX += dx >= 0 ? 3 : -3;
+      player.direction *= 0.2;
+      obstacle.material.color.set(0xff4444);
+      setTimeout(() => obstacle.material.color.set(0xffaa00), 500);
+      updateHUD('💥 Crash! You hit an obstacle.');
     }
   });
 }
