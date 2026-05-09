@@ -15,6 +15,11 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 container.appendChild(renderer.domElement);
 
+let cameraDistance = 12;
+const cameraMinDistance = 6;
+const cameraMaxDistance = 26;
+const cameraHeight = 6;
+
 const lights = [];
 lights.push(new THREE.HemisphereLight(0xddeeff, 0x081820, 0.65));
 const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
@@ -175,6 +180,11 @@ window.addEventListener('keyup', (event) => {
   }
 });
 
+window.addEventListener('wheel', (event) => {
+  cameraDistance += event.deltaY * 0.03;
+  cameraDistance = Math.max(cameraMinDistance, Math.min(cameraMaxDistance, cameraDistance));
+});
+
 newCarButton.addEventListener('click', () => {
   const randomColor = Math.random() * 0xffffff;
   scene.remove(player.group);
@@ -275,7 +285,7 @@ function checkLapProgress(racer) {
 }
 
 function updateCamera() {
-  const offset = new THREE.Vector3(0, 6, -12);
+  const offset = new THREE.Vector3(0, cameraHeight, -cameraDistance);
   camera.position.copy(player.group.position).add(offset);
   camera.lookAt(player.group.position.x, player.group.position.y + 1, player.group.position.z);
 }
