@@ -24,7 +24,7 @@ dirLight.shadow.mapSize.set(2048, 2048);
 lights.push(dirLight);
 lights.forEach(light => scene.add(light));
 
-const roadLength = 200;
+const roadLength = 100;
 const roadWidth = 12;
 const maxLaps = 3;
 const track = createTrack();
@@ -275,9 +275,9 @@ function checkLapProgress(racer) {
 }
 
 function updateCamera() {
-  const offset = new THREE.Vector3(0, 6, 12);
+  const offset = new THREE.Vector3(0, 4, 6);
   camera.position.copy(player.group.position).add(offset);
-  camera.lookAt(player.group.position.x, player.group.position.y + 0.8, player.group.position.z + 8);
+  camera.lookAt(player.group.position.x, player.group.position.y + 0.5, player.group.position.z + 2);
 }
 
 function onWindowResize() {
