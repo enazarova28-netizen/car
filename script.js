@@ -8,7 +8,7 @@ const resetButton = document.getElementById('resetButton');
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x0b1220, 0.007);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 300);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -275,9 +275,9 @@ function checkLapProgress(racer) {
 }
 
 function updateCamera() {
-  const offset = new THREE.Vector3(0, 4, 6);
+  const offset = new THREE.Vector3(0, 6, -12);
   camera.position.copy(player.group.position).add(offset);
-  camera.lookAt(player.group.position.x, player.group.position.y + 0.5, player.group.position.z + 2);
+  camera.lookAt(player.group.position.x, player.group.position.y + 1, player.group.position.z);
 }
 
 function onWindowResize() {
