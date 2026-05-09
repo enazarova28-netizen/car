@@ -19,6 +19,7 @@ let cameraDistance = 12;
 const cameraMinDistance = 6;
 const cameraMaxDistance = 26;
 const cameraHeight = 6;
+const crashResetTime = 0.6;
 
 const lights = [];
 lights.push(new THREE.HemisphereLight(0xddeeff, 0x081820, 0.65));
@@ -131,6 +132,8 @@ function createRacer(color) {
     direction: 0,
     lap: 0,
     lastLapZ: -roadLength / 2,
+    collisionRadius: 2.2,
+    crashTimer: 0,
     color,
   };
 }
@@ -167,6 +170,7 @@ function updateRacerPosition(racer) {
   racer.group.rotation.y = racer.direction;
   
   const clampedX = Math.max(-roadWidth / 2 + 1.2, Math.min(roadWidth / 2 - 1.2, racer.posX));
+  racer.posX = clampedX;
   racer.group.position.x = clampedX;
 }
 
@@ -220,6 +224,7 @@ function animate(now) {
 
   updatePlayer(dt);
   updateBots(dt);
+  checkCarCollisions();
   updateCamera();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
@@ -231,6 +236,10 @@ function updatePlayer(dt) {
   const maxSpeed = 50;
   const turnSpeed = 4.5;
   const lateralForce = 25;
+
+  if (player.crashTimer > 0) {
+    player.crashTimer = Math.max(0, player.crashTimer - dt);
+  }
 
   if (input.ArrowUp) {
     player.speed = Math.min(player.speed + acceleration * dt, maxSpeed);
@@ -248,6 +257,13 @@ function updatePlayer(dt) {
     player.posX -= lateralForce * dt;
   } else {
     player.direction *= 0.94;
+  }
+
+  const roadEdge = roadWidth / 2 - 1.2;
+  if (player.posX < -roadEdge || player.posX > roadEdge) {
+    player.posX = Math.max(-roadEdge, Math.min(roadEdge, player.posX));
+    player.speed *= -0.25;
+    updateHUD('Ouch! You hit the wall.');
   }
 
   player.prevZ = player.posZ;
@@ -291,6 +307,25 @@ function checkLapProgress(racer) {
   if (racer.posZ > finishZ + 3) {
     racer.posZ = startZ + (racer.posZ - finishZ - 3);
   }
+}
+
+function checkCarCollisions() {
+  if (player.crashTimer > 0) {
+    return;
+  }
+
+  bots.forEach((bot) => {
+    const dx = player.posX - bot.posX;
+    const dz = player.posZ - bot.posZ;
+    const minDistance = player.collisionRadius + bot.collisionRadius;
+    if (dx * dx + dz * dz <= minDistance * minDistance) {
+      player.crashTimer = crashResetTime;
+      player.speed = -12;
+      player.posZ -= 1.5;
+      player.direction *= 0.4;
+      updateHUD('💥 Crash! Slow down and recover.');
+    }
+  });
 }
 
 function updateCamera() {
