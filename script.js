@@ -318,12 +318,22 @@ function checkCarCollisions() {
     const dx = player.posX - bot.posX;
     const dz = player.posZ - bot.posZ;
     const minDistance = player.collisionRadius + bot.collisionRadius;
-    if (dx * dx + dz * dz <= minDistance * minDistance) {
+    const distanceSq = dx * dx + dz * dz;
+    const isCollision = distanceSq <= minDistance * minDistance;
+
+    if (isCollision) {
       player.crashTimer = crashResetTime;
-      player.speed = -12;
-      player.posZ -= 1.5;
-      player.direction *= 0.4;
-      updateHUD('💥 Crash! Slow down and recover.');
+      player.speed = -18;
+      player.posZ -= 4;
+      player.posX += dx >= 0 ? 2 : -2;
+      player.direction *= 0.2;
+
+      bot.speed *= 0.5;
+      bot.posZ += 2;
+      bot.posX -= dx >= 0 ? 1 : -1;
+      bot.direction *= -0.2;
+
+      updateHUD('💥 Crash! You hit another car.');
     }
   });
 }
