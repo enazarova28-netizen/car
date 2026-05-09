@@ -125,30 +125,40 @@ function createTrack() {
 
 function createRacer(color) {
   const group = new THREE.Group();
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.25 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 4), bodyMaterial);
-  body.castShadow = true;
-  body.position.y = 0.7;
-  group.add(body);
+  const chairMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.2 });
+  const blackMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.7 });
 
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.45, 1.6), new THREE.MeshStandardMaterial({ color: 0x161b24, roughness: 0.4, metalness: 0.05 }));
-  cabin.position.set(0, 1.05, -0.35);
-  group.add(cabin);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.4, 2.4), chairMaterial);
+  seat.position.y = 0.7;
+  group.add(seat);
 
-  const wheelGeometry = new THREE.CylinderGeometry(0.33, 0.33, 0.4, 16);
-  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x0b0f16, metalness: 0.6, roughness: 0.4 });
-  const wheelPositions = [
-    [-0.9, 0.35, 1.2],
-    [0.9, 0.35, 1.2],
-    [-0.9, 0.35, -1.2],
-    [0.9, 0.35, -1.2],
+  const backrest = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.6, 0.3), chairMaterial);
+  backrest.position.set(0, 1.45, -0.75);
+  group.add(backrest);
+
+  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 1.1, 16), blackMaterial);
+  column.position.y = 0.2;
+  group.add(column);
+
+  const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.6, 12), blackMaterial);
+  crossbar.rotation.z = Math.PI / 2;
+  crossbar.position.y = 0.05;
+  group.add(crossbar);
+
+  const casterGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.3, 12);
+  const casterMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.6 });
+  const casterPositions = [
+    [-1.2, 0.12, 0],
+    [1.2, 0.12, 0],
+    [0, 0.12, 1.2],
+    [0, 0.12, -1.2],
   ];
-  wheelPositions.forEach(([x, y, z]) => {
-    const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(x, y, z);
-    wheel.castShadow = true;
-    group.add(wheel);
+  casterPositions.forEach(([x, y, z]) => {
+    const caster = new THREE.Mesh(casterGeometry, casterMaterial);
+    caster.rotation.x = Math.PI / 2;
+    caster.position.set(x, y, z);
+    caster.castShadow = true;
+    group.add(caster);
   });
 
   return {
