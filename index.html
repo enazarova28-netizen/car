@@ -3,23 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Racing Game</title>
+  <title>Block Miner</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 </head>
 <body>
   <div class="hud">
     <div class="top-bar">
-      <h1>3D Racing Arena</h1>
+      <h1>Block Miner</h1>
       <div class="controls">
-        <button id="newCarButton">New Car</button>
-        <button id="resetButton">Restart Race</button>
+        <button id="newCarButton">Regenerate World</button>
+        <button id="resetButton">Reset Player</button>
       </div>
     </div>
     <div class="stats">
-      <span id="lapCount">Lap 0 / 3</span>
-      <span id="speedMeter">Speed 0</span>
-      <span id="message">Drive with ↑ ↓ ← →. Finish 3 laps to win.</span>
+      <span id="message">Click to lock the mouse. WASD to move.</span>
     </div>
   </div>
   <div id="gameContainer"></div>

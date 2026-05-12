@@ -1,20 +1,21 @@
-# 3D Racing Game
+# Block Miner
 
-A simple browser-based 3D racing game built with Three.js.
+A browser-based block-building game inspired by Minecraft, built with Three.js.
 
 ## Gameplay
 
-- Use the arrow keys to accelerate, brake, and steer.
-- Race around the circular track against three bot cars.
-- Finish 3 laps to win the race.
-- Click `New Car` to change your vehicle's color.
-- Click `Restart Race` to reset positions.
+- Click the canvas to lock the mouse and look around.
+- Use `W`, `A`, `S`, `D` to move and `Space` to jump.
+- Left-click to break blocks.
+- Right-click to place dirt blocks.
+- Press `R` or use the `Regenerate World` button to create a new terrain.
+- Use `Reset Player` to restore your starting position.
 
 ## Files
 
 - `index.html` — game UI and Three.js loader
 - `styles.css` — HUD and canvas styling
-- `script.js` — racing game logic and rendering
+- `script.js` — block world logic and rendering
 - `package.json` — local server script
 
 ## Run locally

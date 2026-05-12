@@ -1,420 +1,211 @@
 const container = document.getElementById('gameContainer');
-const lapCountLabel = document.getElementById('lapCount');
-const speedMeter = document.getElementById('speedMeter');
-const messageLabel = document.getElementById('message');
-const newCarButton = document.getElementById('newCarButton');
+const regenerateButton = document.getElementById('newCarButton');
 const resetButton = document.getElementById('resetButton');
+const messageLabel = document.getElementById('message');
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x0b1220, 0.007);
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 30, 120);
 
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 container.appendChild(renderer.domElement);
 
-let cameraDistance = 12;
-const cameraMinDistance = 6;
-const cameraMaxDistance = 26;
-const cameraHeight = 6;
-const crashResetTime = 0.6;
+const ambientLight = new THREE.HemisphereLight(0xffffff, 0x777788, 0.7);
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+sunLight.position.set(-30, 60, 25);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.camera.left = -60;
+sunLight.shadow.camera.right = 60;
+sunLight.shadow.camera.top = 60;
+sunLight.shadow.camera.bottom = -60;
+scene.add(ambientLight, sunLight);
 
-const lights = [];
-lights.push(new THREE.HemisphereLight(0xddeeff, 0x081820, 0.65));
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
-dirLight.position.set(25, 40, 20);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.set(2048, 2048);
-lights.push(dirLight);
-lights.forEach(light => scene.add(light));
+const blockSize = 2;
+const worldRadius = 10;
+const worldLimit = worldRadius * blockSize - 1;
+const blockGeometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+const materials = {
+  grass: new THREE.MeshStandardMaterial({ color: 0x4c8f2f }),
+  dirt: new THREE.MeshStandardMaterial({ color: 0x8f5c32 }),
+  stone: new THREE.MeshStandardMaterial({ color: 0x6e6e6e }),
+  wood: new THREE.MeshStandardMaterial({ color: 0x8b5a2b }),
+  leaves: new THREE.MeshStandardMaterial({ color: 0x2d7a17 }),
+};
 
-const roadLength = 220;
-const roadWidth = 12;
-const startZ = -roadLength / 2 + 1;
-const maxLaps = 3;
-const obstacles = [];
-const track = createTrack();
-const player = createRacer(0x4ab3ff);
-const bots = [createRacer(0xff5252), createRacer(0xf5a623), createRacer(0x8cff88)];
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
 
-scene.add(player.group);
-bots.forEach(bot => scene.add(bot.group));
+const worldGrid = {};
+const blockMeshes = [];
 
-function createTrack() {
-  const trackGroup = new THREE.Group();
+const player = {
+  position: new THREE.Vector3(0, 12, 8),
+  velocity: new THREE.Vector3(0, 0, 0),
+  yaw: 0,
+  pitch: 0,
+  speed: 12,
+  jumpSpeed: 10,
+  height: 1.8,
+  grounded: false,
+};
 
-  const road = new THREE.Mesh(
-    new THREE.PlaneGeometry(roadWidth, roadLength),
-    new THREE.MeshStandardMaterial({ color: 0x222b42, roughness: 0.8, metalness: 0.1 })
-  );
-  road.rotation.x = -Math.PI / 2;
-  road.receiveShadow = true;
-  trackGroup.add(road);
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(0, 0);
+const input = { forward: false, back: false, left: false, right: false, jump: false };
+let pointerLockActive = false;
 
-  const leftWall = new THREE.Mesh(
-    new THREE.BoxGeometry(0.5, 0.8, roadLength),
-    new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.7 })
-  );
-  leftWall.position.set(-(roadWidth / 2 + 0.25), 0.4, 0);
-  leftWall.receiveShadow = true;
-  trackGroup.add(leftWall);
-
-  const rightWall = new THREE.Mesh(
-    new THREE.BoxGeometry(0.5, 0.8, roadLength),
-    new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.7 })
-  );
-  rightWall.position.set(roadWidth / 2 + 0.25, 0.4, 0);
-  rightWall.receiveShadow = true;
-  trackGroup.add(rightWall);
-
-  const finishLine = new THREE.Mesh(
-    new THREE.BoxGeometry(roadWidth + 1, 0.1, 1),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 })
-  );
-  finishLine.position.set(0, 0.05, roadLength / 2 - 1);
-  trackGroup.add(finishLine);
-
-  const startLine = new THREE.Mesh(
-    new THREE.BoxGeometry(roadWidth + 1, 0.1, 1),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 })
-  );
-  startLine.position.set(0, 0.05, -roadLength / 2 + 1);
-  trackGroup.add(startLine);
-
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(140, 520),
-    new THREE.MeshStandardMaterial({ color: 0x0a1220, roughness: 1 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -0.1;
-  ground.position.z = 0;
-  trackGroup.add(ground);
-
-  const obstacleData = [
-    { x: -3.4, z: -20 },
-    { x: 3.2, z: -36 },
-    { x: -1.8, z: -52 },
-    { x: 2.8, z: -68 },
-    { x: 0.5, z: -84 },
-    { x: -2.2, z: -96 },
-    { x: 2.5, z: -112 },
-    { x: -3, z: -128 },
-    { x: 3.4, z: -144 },
-    { x: 0, z: -160 },
-    { x: -2.7, z: -176 },
-    { x: 2.7, z: -192 },
-  ];
-
-  obstacleData.forEach(({ x, z }) => {
-    const obstacle = new THREE.Mesh(
-      new THREE.BoxGeometry(2.4, 1.6, 2.8),
-      new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.5, metalness: 0.2 })
-    );
-    obstacle.position.set(x, 0.8, z);
-    obstacle.castShadow = true;
-    obstacle.receiveShadow = true;
-    trackGroup.add(obstacle);
-    obstacles.push(obstacle);
-  });
-
-  scene.add(trackGroup);
-  return { finishZ: roadLength / 2 - 1 };
+function resetWorld() {
+  blockMeshes.forEach((block) => worldGroup.remove(block));
+  blockMeshes.length = 0;
+  Object.keys(worldGrid).forEach((key) => delete worldGrid[key]);
+  createTerrain();
+  createTrees();
+  resetPlayer();
+  updateHUD('World regenerated. Click again to lock the mouse.');
 }
 
-function createRacer(color) {
-  const group = new THREE.Group();
-  const chairMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.2 });
-  const blackMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.7 });
+function createTerrain() {
+  for (let x = -worldRadius; x <= worldRadius; x += 1) {
+    for (let z = -worldRadius; z <= worldRadius; z += 1) {
+      const height = Math.max(
+        1,
+        Math.floor(
+          1 +
+            Math.sin(x * 0.35) * 2 +
+            Math.cos(z * 0.4) * 1.8 +
+            Math.random() * 1.6
+        )
+      );
 
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.4, 2.4), chairMaterial);
-  seat.position.y = 0.7;
-  group.add(seat);
-
-  const backrest = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.6, 0.3), chairMaterial);
-  backrest.position.set(0, 1.45, -0.75);
-  group.add(backrest);
-
-  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 1.1, 16), blackMaterial);
-  column.position.y = 0.2;
-  group.add(column);
-
-  const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.6, 12), blackMaterial);
-  crossbar.rotation.z = Math.PI / 2;
-  crossbar.position.y = 0.05;
-  group.add(crossbar);
-
-  const casterGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.3, 12);
-  const casterMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.6 });
-  const casterPositions = [
-    [-1.2, 0.12, 0],
-    [1.2, 0.12, 0],
-    [0, 0.12, 1.2],
-    [0, 0.12, -1.2],
-  ];
-  casterPositions.forEach(([x, y, z]) => {
-    const caster = new THREE.Mesh(casterGeometry, casterMaterial);
-    caster.rotation.x = Math.PI / 2;
-    caster.position.set(x, y, z);
-    caster.castShadow = true;
-    group.add(caster);
-  });
-
-  return {
-    group,
-    speed: 0,
-    posZ: 0,
-    prevZ: 0,
-    posX: 0,
-    direction: 0,
-    lap: 0,
-    lastLapZ: -roadLength / 2,
-    collisionRadius: 2.6,
-    crashTimer: 0,
-    baseColor: color,
-    color,
-  };
-}
-
-function resetRace() {
-  player.posZ = -roadLength / 2 + 5;
-  player.prevZ = player.posZ;
-  player.posX = 0;
-  player.speed = 0;
-  player.direction = 0;
-  player.lap = 0;
-  player.lastLapZ = -roadLength / 2;
-  player.crashTimer = 0;
-  player.group.position.set(player.posX, 0, player.posZ);
-  player.group.rotation.y = 0;
-  player.group.children[0].material.color.set(player.baseColor);
-
-  bots.forEach((bot, index) => {
-    bot.posZ = -roadLength / 2 + 5 + (index + 1) * 8;
-    bot.prevZ = bot.posZ;
-    bot.posX = (index - 1) * 2.5;
-    bot.speed = 15 + index * 2;
-    bot.direction = 0;
-    bot.lap = 0;
-    bot.lastLapZ = -roadLength / 2;
-    bot.crashTimer = 0;
-    bot.group.position.set(bot.posX, 0, bot.posZ);
-    bot.group.rotation.y = 0;
-    bot.group.children[0].material.color.set(bot.baseColor);
-  });
-
-  updateHUD('Drive with ↑ ↓ ← →. Reach the finish line 3 times to win.');
-  lapCountLabel.textContent = `Lap 0 / ${maxLaps}`;
-}
-
-function updateRacerPosition(racer) {
-  racer.group.position.set(racer.posX, 0, racer.posZ);
-  racer.group.rotation.y = racer.direction;
-  
-  const clampedX = Math.max(-roadWidth / 2 + 1.2, Math.min(roadWidth / 2 - 1.2, racer.posX));
-  racer.posX = clampedX;
-  racer.group.position.x = clampedX;
-}
-
-const input = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-window.addEventListener('keydown', (event) => {
-  if (input.hasOwnProperty(event.key)) {
-    input[event.key] = true;
-    event.preventDefault();
-  }
-});
-window.addEventListener('keyup', (event) => {
-  if (input.hasOwnProperty(event.key)) {
-    input[event.key] = false;
-    event.preventDefault();
-  }
-});
-
-window.addEventListener('wheel', (event) => {
-  cameraDistance += event.deltaY * 0.03;
-  cameraDistance = Math.max(cameraMinDistance, Math.min(cameraMaxDistance, cameraDistance));
-});
-
-newCarButton.addEventListener('click', () => {
-  const randomColor = Math.random() * 0xffffff;
-  scene.remove(player.group);
-  const newPlayer = createRacer(randomColor);
-  newPlayer.posZ = player.posZ;
-  newPlayer.posX = player.posX;
-  newPlayer.speed = player.speed;
-  newPlayer.direction = player.direction;
-  newPlayer.lap = player.lap;
-  newPlayer.lastLapZ = player.lastLapZ;
-  player.group = newPlayer.group;
-  player.color = randomColor;
-  scene.add(player.group);
-  updateRacerPosition(player);
-});
-
-resetButton.addEventListener('click', resetRace);
-
-function updateHUD(text) {
-  messageLabel.textContent = text;
-}
-
-let lastTime = performance.now();
-resetRace();
-
-function animate(now) {
-  const dt = Math.min((now - lastTime) / 1000, 0.033);
-  lastTime = now;
-
-  updatePlayer(dt);
-  updateBots(dt);
-  checkCarCollisions();
-  updateCamera();
-  renderer.render(scene, camera);
-  requestAnimationFrame(animate);
-}
-
-function updatePlayer(dt) {
-  const acceleration = 35;
-  const braking = 55;
-  const maxSpeed = 50;
-  const turnSpeed = 4.5;
-  const lateralForce = 25;
-
-  if (player.crashTimer > 0) {
-    player.crashTimer = Math.max(0, player.crashTimer - dt);
-    if (player.crashTimer === 0) {
-      player.group.children[0].material.color.set(player.baseColor);
-    }
-  }
-
-  if (input.ArrowUp) {
-    player.speed = Math.min(player.speed + acceleration * dt, maxSpeed);
-  } else if (input.ArrowDown) {
-    player.speed = Math.max(player.speed - braking * dt, -15);
-  } else {
-    player.speed *= 0.992;
-  }
-
-  if (input.ArrowLeft) {
-    player.direction = Math.min(player.direction + turnSpeed * dt, 0.4);
-    player.posX += lateralForce * dt;
-  } else if (input.ArrowRight) {
-    player.direction = Math.max(player.direction - turnSpeed * dt, -0.4);
-    player.posX -= lateralForce * dt;
-  } else {
-    player.direction *= 0.94;
-  }
-
-  const roadEdge = roadWidth / 2 - 1.2;
-  if (player.posX < -roadEdge || player.posX > roadEdge) {
-    player.posX = Math.max(-roadEdge, Math.min(roadEdge, player.posX));
-    player.speed *= -0.25;
-    updateHUD('Ouch! You hit the wall.');
-  }
-
-  player.prevZ = player.posZ;
-  player.posZ += player.speed * dt;
-  checkLapProgress(player);
-  updateRacerPosition(player);
-  speedMeter.textContent = `Speed ${Math.round(Math.abs(player.speed))}`;
-}
-
-function updateBots(dt) {
-  bots.forEach((bot, idx) => {
-    if (bot.crashTimer > 0) {
-      bot.crashTimer = Math.max(0, bot.crashTimer - dt);
-      if (bot.crashTimer === 0) {
-        bot.group.children[0].material.color.set(bot.baseColor);
-      }
-    }
-
-    const noise = Math.sin(bot.posZ * 0.03 + performance.now() * 0.002) * 2;
-    const desiredSpeed = 18 + idx * 2;
-    bot.speed += (desiredSpeed - bot.speed) * dt * 0.6;
-    
-    bot.prevZ = bot.posZ;
-    bot.posZ += bot.speed * dt;
-    bot.posX += noise * dt * 0.5;
-    bot.direction = noise * 0.1;
-    
-    checkLapProgress(bot);
-    updateRacerPosition(bot);
-  });
-}
-
-function checkLapProgress(racer) {
-  const finishZ = track.finishZ;
-  if (racer.prevZ < finishZ && racer.posZ >= finishZ) {
-    racer.lap += 1;
-    
-    if (racer === player) {
-      lapCountLabel.textContent = `Lap ${player.lap} / ${maxLaps}`;
-      if (player.lap >= maxLaps) {
-        updateHUD('🏁 You finished the race! Press Restart to play again.');
-      } else {
-        updateHUD('✓ Lap completed! Keep racing.');
+      for (let y = 0; y < height; y += 1) {
+        const type = y === height - 1 ? 'grass' : y < height - 2 ? 'dirt' : 'stone';
+        addBlock(x, y, z, type);
       }
     }
   }
+}
 
-  if (racer.posZ > finishZ + 3) {
-    racer.posZ = startZ + (racer.posZ - finishZ - 3);
+function createTrees() {
+  for (let i = 0; i < 14; i += 1) {
+    const gx = Math.floor(Math.random() * (worldRadius * 2 + 1)) - worldRadius;
+    const gz = Math.floor(Math.random() * (worldRadius * 2 + 1)) - worldRadius;
+    const topY = getHighestBlockY(gx, gz);
+    if (topY < 0) {
+      continue;
+    }
+
+    const topBlock = getBlockAt(gx, topY, gz);
+    if (!topBlock || topBlock.userData.type !== 'grass') {
+      continue;
+    }
+
+    addTree(gx, topY + 1, gz);
   }
 }
 
-function checkCarCollisions() {
-  if (player.crashTimer > 0) {
+function addTree(gx, gy, gz) {
+  const trunkHeight = 3;
+  for (let i = 0; i < trunkHeight; i += 1) {
+    addBlock(gx, gy + i, gz, 'wood');
+  }
+
+  const leafHeight = gy + trunkHeight;
+  for (let dx = -2; dx <= 2; dx += 1) {
+    for (let dz = -2; dz <= 2; dz += 1) {
+      for (let dy = 0; dy <= 2; dy += 1) {
+        const distance = Math.abs(dx) + Math.abs(dz) + dy;
+        if (distance <= 4 && !getBlockAt(gx + dx, leafHeight + dy, gz + dz)) {
+          addBlock(gx + dx, leafHeight + dy, gz + dz, 'leaves');
+        }
+      }
+    }
+  }
+}
+
+function gridKey(gx, gy, gz) {
+  return `${gx},${gy},${gz}`;
+}
+
+function getBlockAt(gx, gy, gz) {
+  return worldGrid[gridKey(gx, gy, gz)] || null;
+}
+
+function getHighestBlockY(gx, gz) {
+  for (let y = 18; y >= 0; y -= 1) {
+    if (getBlockAt(gx, y, gz)) {
+      return y;
+    }
+  }
+  return -1;
+}
+
+function addBlock(gx, gy, gz, type) {
+  if (gy < 0 || gx < -worldRadius || gx > worldRadius || gz < -worldRadius || gz > worldRadius) {
+    return null;
+  }
+
+  const key = gridKey(gx, gy, gz);
+  if (worldGrid[key]) {
+    return null;
+  }
+
+  const block = new THREE.Mesh(blockGeometry, materials[type] || materials.dirt);
+  block.position.set(gx * blockSize, gy * blockSize + blockSize / 2, gz * blockSize);
+  block.castShadow = false;
+  block.receiveShadow = true;
+  block.userData = { gx, gy, gz, type };
+
+  worldGroup.add(block);
+  blockMeshes.push(block);
+  worldGrid[key] = block;
+  return block;
+}
+
+function removeBlock(block) {
+  if (!block || !block.userData) {
     return;
   }
 
-  bots.forEach((bot) => {
-    const dx = player.posX - bot.posX;
-    const dz = player.posZ - bot.posZ;
-    const minDistance = player.collisionRadius + bot.collisionRadius;
-    const distanceSq = dx * dx + dz * dz;
-    const isCollision = distanceSq <= minDistance * minDistance;
+  const { gx, gy, gz } = block.userData;
+  if (gy < 0) {
+    return;
+  }
 
-    if (isCollision) {
-      player.crashTimer = crashResetTime;
-      bot.crashTimer = crashResetTime;
-      player.speed = -22;
-      player.posZ -= 5;
-      player.posX += dx >= 0 ? 4 : -4;
-      player.direction *= 0.2;
-      player.group.children[0].material.color.set(0xff4444);
-
-      bot.speed = Math.max(bot.speed * 0.3, 8);
-      bot.posZ += 5;
-      bot.posX -= dx >= 0 ? 2 : -2;
-      bot.direction *= -0.3;
-      bot.group.children[0].material.color.set(0xff4444);
-
-      updateHUD('💥 Crash! You hit another car.');
-      return;
-    }
-  });
-
-  obstacles.forEach((obstacle) => {
-    const dx = player.posX - obstacle.position.x;
-    const dz = player.posZ - obstacle.position.z;
-    const minDistance = player.collisionRadius + 1.2;
-    if (dx * dx + dz * dz <= minDistance * minDistance) {
-      player.crashTimer = crashResetTime;
-      player.speed = -18;
-      player.posZ -= 4;
-      player.posX += dx >= 0 ? 3 : -3;
-      player.direction *= 0.2;
-      obstacle.material.color.set(0xff4444);
-      setTimeout(() => obstacle.material.color.set(0xffaa00), 500);
-      updateHUD('💥 Crash! You hit an obstacle.');
-    }
-  });
+  const key = gridKey(gx, gy, gz);
+  delete worldGrid[key];
+  const index = blockMeshes.indexOf(block);
+  if (index >= 0) {
+    blockMeshes.splice(index, 1);
+  }
+  worldGroup.remove(block);
 }
 
-function updateCamera() {
-  const offset = new THREE.Vector3(0, cameraHeight, -cameraDistance);
-  camera.position.copy(player.group.position).add(offset);
-  camera.lookAt(player.group.position.x, player.group.position.y + 1, player.group.position.z);
+function resetPlayer() {
+  const startX = 0;
+  const startZ = 8;
+  const surfaceY = getSurfaceY(startX, startZ);
+  player.position.set(startX, surfaceY + player.height / 2 + 0.5, startZ);
+  player.velocity.set(0, 0, 0);
+  player.grounded = false;
+  player.yaw = 0;
+  player.pitch = 0;
+  updateCamera();
+}
+
+function getSurfaceY(worldX, worldZ) {
+  const gx = Math.round(worldX / blockSize);
+  const gz = Math.round(worldZ / blockSize);
+  const highest = getHighestBlockY(gx, gz);
+  return highest >= 0 ? (highest + 1) * blockSize : 0;
+}
+
+function updateHUD(text) {
+  messageLabel.textContent = text;
 }
 
 function onWindowResize() {
@@ -422,5 +213,151 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
+
+function handleKeys(event, value) {
+  switch (event.code) {
+    case 'KeyW':
+      input.forward = value;
+      break;
+    case 'KeyS':
+      input.back = value;
+      break;
+    case 'KeyA':
+      input.left = value;
+      break;
+    case 'KeyD':
+      input.right = value;
+      break;
+    case 'Space':
+      input.jump = value;
+      break;
+    case 'KeyR':
+      if (value) {
+        resetWorld();
+      }
+      break;
+  }
+}
+
+function onMouseMove(event) {
+  if (!pointerLockActive) {
+    return;
+  }
+  player.yaw -= event.movementX * 0.0025;
+  player.pitch -= event.movementY * 0.0025;
+  player.pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, player.pitch));
+}
+
+function onMouseDown(event) {
+  if (!pointerLockActive) {
+    return;
+  }
+
+  event.preventDefault();
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(blockMeshes, false);
+  if (!hits.length) {
+    return;
+  }
+
+  const hit = hits[0];
+  const block = hit.object;
+  const normal = hit.face.normal;
+  const { gx, gy, gz } = block.userData;
+
+  if (event.button === 0) {
+    removeBlock(block);
+    updateHUD('Block broken. Right-click to place a block.');
+  } else if (event.button === 2) {
+    const targetX = gx + Math.round(normal.x);
+    const targetY = gy + Math.round(normal.y);
+    const targetZ = gz + Math.round(normal.z);
+    addBlock(targetX, targetY, targetZ, 'dirt');
+    updateHUD('Block placed.');
+  }
+}
+
+function onPointerLockChange() {
+  pointerLockActive = document.pointerLockElement === renderer.domElement;
+  if (pointerLockActive) {
+    updateHUD('WASD to move, space to jump, left-click to break, right-click to place. R regenerates.');
+  } else {
+    updateHUD('Click to lock the mouse and start playing.');
+  }
+}
+
+function updateCamera() {
+  const eyeHeight = player.position.y + 0.1;
+  camera.position.set(player.position.x, eyeHeight, player.position.z);
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = player.yaw;
+  camera.rotation.x = player.pitch;
+}
+
+function updatePlayer(dt) {
+  const direction = new THREE.Vector3();
+  if (input.forward) direction.z -= 1;
+  if (input.back) direction.z += 1;
+  if (input.left) direction.x -= 1;
+  if (input.right) direction.x += 1;
+
+  if (direction.lengthSq() > 0) {
+    direction.normalize();
+    direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), player.yaw);
+    direction.multiplyScalar(player.speed * dt);
+    player.position.add(direction);
+  }
+
+  player.position.x = Math.max(-worldLimit, Math.min(worldLimit, player.position.x));
+  player.position.z = Math.max(-worldLimit, Math.min(worldLimit, player.position.z));
+
+  if (input.jump && player.grounded) {
+    player.velocity.y = player.jumpSpeed;
+    player.grounded = false;
+  }
+
+  player.velocity.y -= 24 * dt;
+  player.position.y += player.velocity.y * dt;
+
+  const floorY = getSurfaceY(player.position.x, player.position.z);
+  const minY = floorY + player.height / 2;
+
+  if (player.position.y <= minY) {
+    player.position.y = minY;
+    player.velocity.y = 0;
+    player.grounded = true;
+  } else {
+    player.grounded = false;
+  }
+
+  updateCamera();
+}
+
+function animate(now) {
+  const dt = Math.min((now - (animate.lastTime || now)) / 1000, 0.033);
+  animate.lastTime = now;
+
+  updatePlayer(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+
 window.addEventListener('resize', onWindowResize);
-requestAnimationFrame(animate);
+window.addEventListener('keydown', (event) => handleKeys(event, true));
+window.addEventListener('keyup', (event) => handleKeys(event, false));
+window.addEventListener('mousemove', onMouseMove);
+window.addEventListener('mousedown', onMouseDown);
+window.addEventListener('contextmenu', (event) => event.preventDefault());
+
+document.addEventListener('pointerlockchange', onPointerLockChange);
+
+renderer.domElement.addEventListener('click', () => {
+  if (!pointerLockActive) {
+    renderer.domElement.requestPointerLock();
+  }
+});
+
+regenerateButton.addEventListener('click', resetWorld);
+resetButton.addEventListener('click', resetPlayer);
+
+resetWorld();
