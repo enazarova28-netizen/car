@@ -5,7 +5,7 @@ const messageLabel = document.getElementById('message');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 30, 120);
+// scene.fog = new THREE.Fog(0x87ceeb, 30, 120);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -30,11 +30,11 @@ const worldRadius = 10;
 const worldLimit = worldRadius * blockSize - 1;
 const blockGeometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
 const materials = {
-  grass: new THREE.MeshStandardMaterial({ color: 0x4c8f2f }),
-  dirt: new THREE.MeshStandardMaterial({ color: 0x8f5c32 }),
-  stone: new THREE.MeshStandardMaterial({ color: 0x6e6e6e }),
-  wood: new THREE.MeshStandardMaterial({ color: 0x8b5a2b }),
-  leaves: new THREE.MeshStandardMaterial({ color: 0x2d7a17 }),
+  grass: new THREE.MeshStandardMaterial({ color: 0x4c8f2f, emissive: 0x002200 }),
+  dirt: new THREE.MeshStandardMaterial({ color: 0x8f5c32, emissive: 0x220000 }),
+  stone: new THREE.MeshStandardMaterial({ color: 0x6e6e6e, emissive: 0x111111 }),
+  wood: new THREE.MeshStandardMaterial({ color: 0x8b5a2b, emissive: 0x110000 }),
+  leaves: new THREE.MeshStandardMaterial({ color: 0x2d7a17, emissive: 0x001100 }),
 };
 
 const worldGroup = new THREE.Group();
@@ -65,6 +65,8 @@ function resetWorld() {
   Object.keys(worldGrid).forEach((key) => delete worldGrid[key]);
   createTerrain();
   createTrees();
+  // Add a test block to ensure visibility
+  addBlock(0, 10, 0, 'stone');
   resetPlayer();
   updateHUD('World regenerated. Click again to lock the mouse.');
 }
@@ -163,6 +165,7 @@ function addBlock(gx, gy, gz, type) {
   worldGroup.add(block);
   blockMeshes.push(block);
   worldGrid[key] = block;
+  console.log('Added block at', gx, gy, gz, type);
   return block;
 }
 
@@ -189,7 +192,7 @@ function resetPlayer() {
   const startX = 0;
   const startZ = 8;
   const surfaceY = getSurfaceY(startX, startZ);
-  player.position.set(startX, surfaceY + player.height / 2 + 0.5, startZ);
+  player.position.set(startX, Math.max(surfaceY + player.height / 2 + 0.5, 15), startZ);
   player.velocity.set(0, 0, 0);
   player.grounded = false;
   player.yaw = 0;
